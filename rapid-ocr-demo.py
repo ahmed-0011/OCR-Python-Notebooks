@@ -24,7 +24,7 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""![PaddleOCR 3.0](https://raw.githubusercontent.com/RapidAI/RapidOCR/main/assets/RapidOCR_LOGO.png)""")
+    mo.md(r"""![Rapid OCR](https://raw.githubusercontent.com/RapidAI/RapidOCR/main/assets/RapidOCR_LOGO.png)""")
     return
 
 
@@ -113,7 +113,7 @@ def _(file_browser, get_error_as_html, mo):
         [mo.image(src=file_path).batch() for file_path in file_paths],
         label="Input Images",
     )
-    return dict_path_obj_to_file_data, file_path, file_paths
+    return dict_path_obj_to_file_data, file_paths
 
 
 @app.cell(hide_code=True)
@@ -289,13 +289,16 @@ def _(
         except Exception as e:
             mo.stop(True, get_error_as_html(f"<strong>ERROR: {e}</strong>"))
 
+    orignal_file_names = ', '.join(map(lambda path: path.name, file_paths))
+
     mo.md(
-        f"`Original file name(s): [{', '.join(map(lambda path: path.name, file_paths))}]`"
+        f"`Original file name(s): [{orignal_file_names}]`"
     )
     return (
         list_bounding_box,
         list_score,
         list_text,
+        orignal_file_names,
         output_img_str_paths,
         results,
     )
@@ -330,14 +333,14 @@ def _(mo):
 
 
 @app.cell
-def _(file_path, list_bounding_box, list_score, list_text, mo):
+def _(list_bounding_box, list_score, list_text, mo, orignal_file_names):
     dict_table_data = {
         "Bounding Box": list_bounding_box,
         "Score": list_score,
         "Text": list_text,
     }
 
-    mo.ui.table(data=dict_table_data, label=f"`{file_path.name} OCR results`")
+    mo.ui.table(data=dict_table_data, label=f"`[{orignal_file_names}] OCR results`")
     return
 
 
