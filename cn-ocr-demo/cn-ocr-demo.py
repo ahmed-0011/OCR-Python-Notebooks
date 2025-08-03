@@ -7,7 +7,7 @@
 
 import marimo
 
-__generated_with = "0.14.11"
+__generated_with = "0.14.16"
 app = marimo.App(width="medium", app_title="CnOCR Notebook")
 
 
@@ -24,9 +24,7 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""![CnOCR OCR](https://raw.githubusercontent.com/breezedeus/CnOCR/master/docs/figs/cnocr-logo.jpg)"""
-    )
+    mo.md(r"""![CnOCR OCR](https://raw.githubusercontent.com/breezedeus/CnOCR/master/docs/figs/cnocr-logo.jpg)""")
     return
 
 
@@ -50,6 +48,7 @@ def _():
     import PIL
     from PIL import Image
     from PIL import ImageDraw
+    from os import makedirs
 
 
     file_browser = mo.ui.file_browser(
@@ -58,7 +57,7 @@ def _():
         multiple=True,
     )
     mo.vstack([file_browser])
-    return CnOcr, ImageDraw, PIL, file_browser, mo, pyperclip
+    return CnOcr, ImageDraw, PIL, file_browser, makedirs, mo, pyperclip
 
 
 @app.cell
@@ -188,6 +187,13 @@ def _(mo):
     ---
     """
     )
+    return
+
+
+@app.cell
+def _(makedirs):
+    # Create a directory where the OCR results will be saved
+    makedirs("./output", exist_ok=True)
     return
 
 

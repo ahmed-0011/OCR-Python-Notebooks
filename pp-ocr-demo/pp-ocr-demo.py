@@ -7,7 +7,7 @@
 
 import marimo
 
-__generated_with = "0.14.11"
+__generated_with = "0.14.16"
 app = marimo.App(width="medium", app_title="PaddleOCR 3.0 Notebook")
 
 
@@ -24,7 +24,9 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""![PaddleOCR 3.0](https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/refs/heads/main/docs/images/Banner.png)""")
+    mo.md(
+        r"""![PaddleOCR 3.0](https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/refs/heads/main/docs/images/Banner.png)"""
+    )
     return
 
 
@@ -46,7 +48,7 @@ def _():
     import pyperclip
     from paddleocr import PaddleOCR
     from pypdfium2 import PdfiumError
-
+    from os import makedirs
 
     file_browser = mo.ui.file_browser(
         label="Upload an image with one of the following supported formats: .pdf, .jpg, jpeg, and .png!",
@@ -54,7 +56,7 @@ def _():
         multiple=False,
     )
     mo.vstack([file_browser])
-    return PaddleOCR, file_browser, mo, pyperclip
+    return PaddleOCR, file_browser, makedirs, mo, pyperclip
 
 
 @app.cell
@@ -199,6 +201,13 @@ def _(mo):
     ---
     """
     )
+    return
+
+
+@app.cell
+def _(makedirs):
+    # Create a directory where the OCR results will be saved
+    makedirs("./output", exist_ok=True)
     return
 
 

@@ -7,24 +7,18 @@
 
 import marimo
 
-__generated_with = "0.14.11"
-app = marimo.App(width="medium", app_title="RapidOCR Notebook")
+__generated_with = "0.14.16"
+app = marimo.App(width="medium", app_title="EasyOCR Notebook")
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-    # RapidOCR Notebook
+    # EasyOCR Notebook
     ---
     """
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""![Rapid OCR](https://raw.githubusercontent.com/RapidAI/RapidOCR/main/assets/RapidOCR_LOGO.png)""")
     return
 
 
@@ -44,14 +38,11 @@ def _():
     import json
     import marimo as mo
     import pyperclip
-    from rapidocr import (
-        EngineType,
-        LangDet,
-        ModelType,
-        OCRVersion,
-        RapidOCR,
-        LangRec,
-    )
+    import easyocr
+    import PIL
+    from PIL import Image
+    from PIL import ImageDraw
+    from os import makedirs
 
 
     file_browser = mo.ui.file_browser(
@@ -60,17 +51,7 @@ def _():
         multiple=True,
     )
     mo.vstack([file_browser])
-    return (
-        EngineType,
-        LangDet,
-        LangRec,
-        ModelType,
-        OCRVersion,
-        RapidOCR,
-        file_browser,
-        mo,
-        pyperclip,
-    )
+    return ImageDraw, PIL, easyocr, file_browser, makedirs, mo, pyperclip
 
 
 @app.cell
@@ -99,7 +80,7 @@ def _(file_browser, get_error_as_html, mo):
         mo.stop(
             True,
             get_error_as_html(
-                "<strong>NOTE: You need to select an image or a PDF file for this cell to execute!</strong>"
+                "<strong>NOTE: You need to select an image file for this cell to execute!</strong>"
             ),
         )
 
@@ -125,7 +106,7 @@ def _(mo):
 @app.cell
 def _(mo):
     lang_dropdown = mo.ui.dropdown(
-        options=["en", "ch", "jp"], label="Select language:", value="en"
+        options=["en", "ar", "ch_tra", "ja"], label="Select language:", value="en"
     )
     mo.vstack([lang_dropdown])
     return (lang_dropdown,)
@@ -134,72 +115,8 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
-        """
-    ## RapidOCR Model Parameters
-    ---
-    """
-    )
-    return
-
-
-@app.cell
-def _(LangRec, lang_dropdown, mo):
-    lang = lang_dropdown.value
-    lang_to_enum_lang = {"en": LangRec.EN, "ch": LangRec.CH, "jp": LangRec.JAPAN}
-    params_label_to_bool = {
-        "Doc & Textline Orientation Classify": True,
-        "Single Char Box": True,
-        "Word Box": True,
-    }
-    switches = [
-        mo.ui.switch(label=label, value=params_label_to_bool[label])
-        for label in params_label_to_bool.keys()
-    ]
-
-    switches_container = mo.hstack([*switches], widths=[1, 1, 1])
-    text_score_threshould_slider = mo.md(
-        "Text score threshold: {slider_el}"
-    ).batch(
-        slider_el=mo.ui.slider(
-            start=0,
-            stop=1,
-            step=0.02,
-            value=0.5,
-            debounce=True,
-            show_value=True,
-        )
-    )
-
-    mo.vstack([switches_container, text_score_threshould_slider], gap=3).callout(
-        kind="neutral"
-    )
-    return lang, lang_to_enum_lang, switches, text_score_threshould_slider
-
-
-@app.cell
-def _(mo, switches, text_score_threshould_slider):
-    doc_textline_orientation_classify, single_char_box, word_box = map(
-        lambda switch: switch.value, switches
-    )
-
-    text_score_threshould = text_score_threshould_slider.value["slider_el"]
-
-    mo.md(
-        f"**Parameters:** \n`{doc_textline_orientation_classify = }, {single_char_box = }, {word_box = }, {text_score_threshould = }`"
-    )
-    return (
-        doc_textline_orientation_classify,
-        single_char_box,
-        text_score_threshould,
-        word_box,
-    )
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
         r"""
-    ## RapidOCR Class Documentation
+    ## EasyOCR Reader Class Documentation
     ---
     """
     )
@@ -207,8 +124,8 @@ def _(mo):
 
 
 @app.cell(disabled=True, hide_code=True)
-def _(RapidOCR, mo):
-    mo.doc(obj=RapidOCR)
+def _(easyocr, mo):
+    mo.doc(obj=easyocr.Reader)
     return
 
 
@@ -216,7 +133,7 @@ def _(RapidOCR, mo):
 def _(mo):
     mo.md(
         r"""
-    ## Use an Instance of RapidOCR  to Process The Selected File
+    ## Use an Instance of EasyOCR  to Process The Selected File
     ---
     """
     )
@@ -224,45 +141,40 @@ def _(mo):
 
 
 @app.cell
+def _(makedirs):
+    # Create a directory where the OCR results will be saved
+    makedirs("./output", exist_ok=True)
+    return
+
+
+@app.cell
 def _(
-    EngineType,
-    LangDet,
-    ModelType,
-    OCRVersion,
-    RapidOCR,
+    ImageDraw,
+    PIL,
     dict_path_obj_to_file_data,
-    doc_textline_orientation_classify,
+    easyocr,
     file_paths,
     get_error_as_html,
-    lang,
-    lang_to_enum_lang,
+    lang_dropdown,
     mo,
-    single_char_box,
-    text_score_threshould,
-    word_box,
 ):
-    def save_ocr_result(result, str_output_img_file_path) -> None:
-        result.vis(str_output_img_file_path)
+    def save_ocr_result(bboxes, str_file_path, str_output_img_file_path) -> None:
+        img = PIL.Image.open(str_file_path)
+        draw = ImageDraw.Draw(img)
+        for bbox in bboxes:
+            p0, p1, p2, p3 = bbox
+            draw.line([*p0, *p1, *p2, *p3, *p0], fill="green", width=2)
+        img.save(str_output_img_file_path)
 
 
     results = []
     list_bounding_box = []
     list_score = []
     list_text = []
+    list_text_combined = []
     output_img_str_paths = []
-    engine = RapidOCR(
-        params={
-            "Rec.engine_type": EngineType.ONNXRUNTIME,  # or EngineType.OPENVINO or EngineType.PADDLE or EngineType.TORCH
-            "Det.engine_type": EngineType.ONNXRUNTIME,  # or EngineType.OPENVINO or EngineType.PADDLE or EngineType.TORCH
-            "Rec.ocr_version": OCRVersion.PPOCRV4,
-            "Det.ocr_version": OCRVersion.PPOCRV4,
-            "Rec.model_type": ModelType.MOBILE,
-            "Det.model_type": ModelType.MOBILE,
-            "Rec.lang_type": lang_to_enum_lang[lang],
-            "Det.lang_type": LangDet.EN,
-        }
-    )
-
+    lang = lang_dropdown.value
+    reader = easyocr.Reader([lang, "en"], gpu=False)
 
     for _file_path, file_data in dict_path_obj_to_file_data.items():
         str_file_path = str(_file_path)
@@ -273,35 +185,53 @@ def _(
         )
         output_img_str_paths.append(str_output_img_file_path)
         try:
-            result = engine(
+            result = reader.readtext(
                 str_file_path,
-                use_cls=doc_textline_orientation_classify,
-                return_single_char_box=single_char_box,
-                return_word_box=word_box,
-                text_score=text_score_threshould,
+                batch_size=3,
+                output_format="standard",
             )
-
             results.append(result)
-            list_bounding_box.extend(result.boxes.tolist())
-            list_score = (*list_score, *result.scores)
-            list_text = (*list_text, *result.txts)
-            save_ocr_result(result, str_output_img_file_path)
+
+            current_bboxes = [bbox for bbox, _, _ in result]
+            current_texts = [text for _, text, _ in result]
+
+            list_text_combined.append(" ".join(current_texts))
+
+            list_bounding_box.extend(current_bboxes)
+            list_score.extend([score for _, _, score in result])
+            list_text.extend(current_texts)
+
+            save_ocr_result(
+                current_bboxes, str_file_path, str_output_img_file_path
+            )
         except Exception as e:
             mo.stop(True, get_error_as_html(f"<strong>ERROR: {e}</strong>"))
 
-    orignal_file_names = ', '.join(map(lambda path: path.name, file_paths))
-
-    mo.md(
-        f"`Original file name(s): [{orignal_file_names}]`"
+    html_model_storage_path = mo.md(
+        f"""`EasyOCR models are stored in the following path: {
+            reader.model_storage_directory
+        }`"""
     )
+
+    original_file_names = ", ".join(map(lambda path: path.name, file_paths))
+    html_file_names = mo.md(f"`Original file name(s): [{original_file_names}]`")
+
+    mo.vstack([html_model_storage_path, html_file_names])
     return (
         list_bounding_box,
         list_score,
         list_text,
-        orignal_file_names,
+        list_text_combined,
+        original_file_names,
         output_img_str_paths,
         results,
     )
+
+
+@app.cell(disabled=True, hide_code=True)
+def _(easyocr, mo):
+    mo.doc(obj=easyocr.Reader)
+    return
 
 
 @app.cell(hide_code=True)
@@ -333,14 +263,23 @@ def _(mo):
 
 
 @app.cell
-def _(list_bounding_box, list_score, list_text, mo, orignal_file_names):
+def _(
+    easyocr,
+    list_bounding_box,
+    list_score,
+    list_text,
+    mo,
+    original_file_names,
+):
     dict_table_data = {
-        "Bounding Box": list_bounding_box,
-        "Score": list_score,
+        "Bounding Box": easyocr.utils.np.asarray(list_bounding_box).tolist(),
+        "Score": easyocr.utils.np.asarray(list_score).tolist(),
         "Text": list_text,
     }
 
-    mo.ui.table(data=dict_table_data, label=f"`[{orignal_file_names}] OCR results`")
+    mo.ui.table(
+        data=dict_table_data, label=f"`[{original_file_names}] OCR results`"
+    )
     return
 
 
@@ -351,7 +290,7 @@ def _(mo):
 
 
 @app.cell
-def _(file_paths, mo, results):
+def _(file_paths, list_text_combined, mo, results):
     output_html = None
     buttons = []
     get_text, set_text = mo.state("")
@@ -362,7 +301,7 @@ def _(file_paths, mo, results):
 
 
     if len(results) == 1:
-        text = results[0].to_markdown()
+        text = list_text_combined[0]
         button = mo.ui.button(
             label="Copy",
             kind="info",
@@ -373,7 +312,7 @@ def _(file_paths, mo, results):
     else:
         dict_page_number_to_text = {}
         for i, _result in enumerate(results):
-            text = _result.to_markdown()
+            text = list_text_combined[i]
 
             button = mo.ui.button(
                 label="Copy",
