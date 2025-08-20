@@ -2,7 +2,7 @@
 
 This repository includes a few [Marimo](https://marimo.io) notebooks that contain Python scripts that aim to showcase how to quickly run and test some of the OCR tools locally that utilize lightweight CPU-based models.
 
-# How to Run Marimo Notebooks
+## How to Run Marimo Notebooks
 
 You need to make sure that uv, the Python package and project manager, is installed on your system. Then, to run the notebook for a certain OCR tool, you need to navigate to the associated directory in the terminal and then follow these steps:
 
